@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDraw, updateDraw } from "@/lib/store/drawStore";
 import { getCardById } from "@/lib/decks/lenormand";
+import { canPickCards } from "@/lib/engine/tarotengine";
 
 export async function POST(
   request: NextRequest,
@@ -8,10 +9,19 @@ export async function POST(
 ) {
   try {
     const { drawId } = await params;
-    const body = await request.json();
-    const { cardId } = body;
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
 
-    if (!cardId) {
+    const cardId =
+      typeof (body as { cardId?: unknown })?.cardId === "string"
+        ? (body as { cardId: string }).cardId
+        : undefined;
+
+    if (!cardId || cardId.length > 64) {
       return NextResponse.json(
         { error: "Missing cardId" },
         { status: 400 }
@@ -21,6 +31,22 @@ export async function POST(
     const draw = getDraw(drawId);
     if (!draw) {
       return NextResponse.json({ error: "Draw not found" }, { status: 404 });
+    }
+
+    // Enforce phase: selection is only allowed before revealing begins.
+    if (!canPickCards(draw)) {
+      return NextResponse.json(
+        { error: "Cannot pick cards after revealing has begun" },
+        { status: 400 }
+      );
+    }
+
+    // Ensure the card is part of this draw's deck order.
+    if (!draw.deckOrder.includes(cardId)) {
+      return NextResponse.json(
+        { error: "Card not in this draw's deck" },
+        { status: 400 }
+      );
     }
 
     // Validate card exists
