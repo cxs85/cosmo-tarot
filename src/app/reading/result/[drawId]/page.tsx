@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, ReactNode, useEffect, useMemo, useState } from "react";
+import { Fragment, ReactNode, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { ReadingResult } from "@/lib/types";
@@ -119,10 +119,9 @@ export default function ReadingPage() {
   ];
 
   const currentPageContent = pages[currentPage - 1];
-  const highlightedCardName = useMemo(() => {
-    if (!highlightedCard) return undefined;
-    return reading.draw.cards.find((c) => c.id === highlightedCard)?.displayName;
-  }, [highlightedCard, reading.draw.cards]);
+  const highlightedCardName = highlightedCard
+    ? reading.draw.cards.find((c) => c.id === highlightedCard)?.displayName
+    : undefined;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-900 py-12 px-4">

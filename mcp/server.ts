@@ -67,7 +67,7 @@ async function main() {
     const { name, arguments: args } = request.params;
 
     if (name === "cosmo_tarot_reading") {
-      const { drawId, locale = "en" } = args as {
+      const { drawId } = args as {
         drawId: string;
         locale?: string;
       };
