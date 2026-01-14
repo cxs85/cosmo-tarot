@@ -2,11 +2,38 @@
 import { getAllCardIds } from "../decks/lenormand";
 import { DrawState } from "../types";
 
+function cryptoRandomInt(maxExclusive: number): number {
+  if (!Number.isFinite(maxExclusive) || maxExclusive <= 0) {
+    throw new Error(`cryptoRandomInt maxExclusive must be > 0, got: ${maxExclusive}`);
+  }
+
+  // Prefer WebCrypto (available in modern browsers, Node 18+, and Edge runtime).
+  const cryptoObj = globalThis.crypto;
+  if (!cryptoObj?.getRandomValues) {
+    // Fallback: keep behavior working even if crypto is unavailable.
+    return Math.floor(Math.random() * maxExclusive);
+  }
+
+  // Rejection sampling to avoid modulo bias.
+  // Using 32-bit unsigned range [0, 2^32).
+  const range = 0x100000000;
+  const limit = range - (range % maxExclusive);
+  const buf = new Uint32Array(1);
+
+  let x = 0;
+  do {
+    cryptoObj.getRandomValues(buf);
+    x = buf[0]!;
+  } while (x >= limit);
+
+  return x % maxExclusive;
+}
+
 // Fisher-Yates shuffle
 function shuffleArray<T>(array: T[]): T[] {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = cryptoRandomInt(i + 1);
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;

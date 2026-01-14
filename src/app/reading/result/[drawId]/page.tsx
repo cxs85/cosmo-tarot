@@ -1,10 +1,49 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, ReactNode, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { ReadingResult } from "@/lib/types";
 import { getCardById } from "@/lib/decks/lenormand";
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function renderHighlightedText(text: string, highlight: string): ReactNode {
+  if (!highlight) return text;
+
+  const re = new RegExp(`\\b(${escapeRegExp(highlight)})\\b`, "gi");
+  const parts = text.split(re);
+  const highlightLower = highlight.toLowerCase();
+
+  return parts.map((part, idx) => {
+    const isMatch = part.toLowerCase() === highlightLower;
+    if (!isMatch) return <Fragment key={idx}>{part}</Fragment>;
+    return (
+      <mark
+        key={idx}
+        className="bg-yellow-200 dark:bg-yellow-900/50 px-1 rounded"
+      >
+        {part}
+      </mark>
+    );
+  });
+}
+
+function renderReadingContent(content: string, highlight?: string): ReactNode {
+  // Preserve paragraphs while avoiding HTML injection.
+  const paragraphs = content
+    .split(/\n\s*\n/g)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  return paragraphs.map((p, idx) => (
+    <p key={idx}>
+      {highlight ? renderHighlightedText(p, highlight) : p}
+    </p>
+  ));
+}
 
 export default function ReadingPage() {
   const router = useRouter();
@@ -55,22 +94,6 @@ export default function ReadingPage() {
     }
   };
 
-  const highlightCardInText = (text: string, cardId: string) => {
-    const card = reading?.draw.cards.find((c) => c.id === cardId);
-    if (!card) return text;
-
-    // Escape HTML and then highlight card name mentions
-    const escaped = text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-    const regex = new RegExp(`\\b${card.displayName}\\b`, "gi");
-    return escaped.replace(
-      regex,
-      `<mark class="bg-yellow-200 dark:bg-yellow-900/50 px-1 rounded">${card.displayName}</mark>`
-    );
-  };
-
   if (!reading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -96,9 +119,9 @@ export default function ReadingPage() {
   ];
 
   const currentPageContent = pages[currentPage - 1];
-  const displayContent = highlightedCard
-    ? highlightCardInText(currentPageContent.content, highlightedCard)
-    : currentPageContent.content;
+  const highlightedCardName = highlightedCard
+    ? reading.draw.cards.find((c) => c.id === highlightedCard)?.displayName
+    : undefined;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-900 py-12 px-4">
@@ -155,10 +178,9 @@ export default function ReadingPage() {
           <h2 className="text-2xl font-semibold mb-6 text-center">
             {currentPageContent.title}
           </h2>
-          <div
-            className="max-w-none text-gray-700 dark:text-gray-300 leading-relaxed text-base md:text-lg space-y-4"
-            dangerouslySetInnerHTML={{ __html: displayContent }}
-          />
+          <div className="max-w-none text-gray-700 dark:text-gray-300 leading-relaxed text-base md:text-lg space-y-4">
+            {renderReadingContent(currentPageContent.content, highlightedCardName)}
+          </div>
         </div>
 
         {/* Pagination */}
