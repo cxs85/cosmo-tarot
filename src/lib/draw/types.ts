@@ -2,11 +2,13 @@
 
 export type SpreadSize = 3 | 5;
 
+
 export type DrawPhase =
   | "INIT"          // created, not shuffled yet (optional)
   | "SHUFFLED"      // shuffled, not picking yet
   | "PICKING"       // user selecting cards
   | "REVEALING"     // user revealing selected cards
+  | "REVEALED"     // meaning revealed all cards, meaning not yet generated
   | "COMPLETE";     // meaning generated and locked
 
 export type CardRef = {
