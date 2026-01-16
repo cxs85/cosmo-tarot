@@ -1,4 +1,5 @@
 // src/lib/draw/types.ts
+import type { ReadingResult } from "@/lib/reading/types";
 
 export type SpreadSize = 3 | 5;
 
@@ -45,9 +46,12 @@ export type DrawSession = {
 
   // cosmic context (template-based)
   cosmic: CosmicContext;
-
+  
   // idempotency / lifecycle
   createdAt: number;     // epoch ms
   expiresAt: number;     // epoch ms
   completedAt?: number;  // epoch ms
+
+  reading?: ReadingResult; // stored artifact (set once on COMPLETE)
+
 };
