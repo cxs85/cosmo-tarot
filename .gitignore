@@ -41,3 +41,9 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# snapshot of repo for chatgpt to read
+/_snapshot/*
+
+# src zip for chatgpt to read
+src.zip
