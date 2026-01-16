@@ -4,7 +4,7 @@ import type { DrawSession } from "@/lib/draw/types";
 import type { ReadingResult } from "@/lib/reading/types";
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY!,
 });
 
 export async function generateReadingLLM(

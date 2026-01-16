@@ -38,7 +38,10 @@ export default function DebugPage() {
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const drawId = useMemo(() => (resp && "drawId" in resp ? resp.drawId : null), [resp]);
+  const drawId = useMemo(
+    () => (resp && "drawId" in resp ? resp.drawId : null),
+    [resp]
+  );
 
   async function startDraw() {
     setLoading(true);
@@ -88,7 +91,6 @@ export default function DebugPage() {
     setLoading(true);
     setErr(null);
     try {
-      // Select deckIndex 0..spread-1 (simple deterministic dev harness)
       for (let i = 0; i < spread; i++) {
         const json = await postJson<OkResp | ErrResp>("/api/draw/select", {
           drawId,
@@ -111,7 +113,6 @@ export default function DebugPage() {
     setLoading(true);
     setErr(null);
     try {
-      // Reveal selectedIndex 0..spread-1 (strict sequential)
       for (let i = 0; i < spread; i++) {
         const json = await postJson<OkResp | ErrResp>("/api/draw/reveal", {
           drawId,
@@ -126,18 +127,56 @@ export default function DebugPage() {
     }
   }
 
-  async function autoFlow() {
-    // One-button: start (if needed) -> select -> reveal -> open reading
-    setErr(null);
+  async function completeDraw() {
     if (!drawId) {
-      await startDraw();
-      // startDraw updates state asynchronously; simplest is: user clicks start first.
-      // We'll just message if still missing.
+      setErr("No drawId yet.");
       return;
     }
-    await autoSelect();
-    await autoReveal();
-    window.open(`/reading?drawId=${encodeURIComponent(drawId)}`, "_blank", "noreferrer");
+    try {
+      await postJson<OkResp | ErrResp>("/api/draw/complete", { drawId });
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  async function autoFlow() {
+    setErr(null);
+    if (!drawId) {
+      setErr("Click Start draw first.");
+      return;
+    }
+    try {
+      setLoading(true);
+      await autoSelect();
+      await autoReveal();
+      await completeDraw(); // 🔒 REQUIRED STEP
+      window.open(
+        `/reading?drawId=${encodeURIComponent(drawId)}`,
+        "_blank",
+        "noreferrer"
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Auto-flow failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function openReading() {
+    if (!drawId) return;
+    try {
+      setLoading(true);
+      await completeDraw(); // 🔒 REQUIRED STEP
+      window.open(
+        `/reading?drawId=${encodeURIComponent(drawId)}`,
+        "_blank",
+        "noreferrer"
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Open reading failed");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -174,7 +213,6 @@ export default function DebugPage() {
             style={{ padding: 8, border: "1px solid #ddd", borderRadius: 8, width: 120 }}
           >
             <option value={3}>3</option>
-
             <option value={5}>5</option>
           </select>
         </label>
@@ -193,18 +231,18 @@ export default function DebugPage() {
           Auto-reveal (0..N-1)
         </button>
 
-        <button onClick={autoFlow} disabled={loading}>
-          Auto flow → open /reading
+        <button onClick={autoFlow} disabled={loading || !drawId}>
+          Auto flow → complete → open /reading
         </button>
 
         {drawId && (
           <>
             <button onClick={copyDrawId}>{copied ? "Copied" : "Copy drawId"}</button>
+            <button onClick={openReading} disabled={loading}>
+              Complete → Open /reading
+            </button>
             <a href={`/api/draw/state?drawId=${encodeURIComponent(drawId)}`} target="_blank" rel="noreferrer">
               Open /state JSON
-            </a>
-            <a href={`/reading?drawId=${encodeURIComponent(drawId)}`} target="_blank" rel="noreferrer">
-              Open /reading
             </a>
           </>
         )}
@@ -228,7 +266,7 @@ export default function DebugPage() {
       )}
 
       <div style={{ marginTop: 16, fontSize: 12, opacity: 0.7 }}>
-        Notes: Auto-select picks deck indices 0..N-1 (dev harness only). Auto-reveal assumes strict sequential reveal.
+        Notes: Debug harness enforces domain invariant: /reading requires /complete.
       </div>
     </main>
   );

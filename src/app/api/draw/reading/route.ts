@@ -1,9 +1,12 @@
 // src/app/api/draw/reading/route.ts
 import { getDraw } from "@/lib/draw/store";
-import { makeStubReading } from "@/lib/reading/stub";
 
 function badRequest(message: string) {
   return Response.json({ ok: false, error: message }, { status: 400 });
+}
+
+function notFound(message: string) {
+  return Response.json({ ok: false, error: message }, { status: 404 });
 }
 
 function conflict(message: string, details?: unknown) {
@@ -17,15 +20,14 @@ export async function GET(req: Request) {
   if (!drawId) return badRequest("drawId is required");
 
   const session = getDraw(drawId);
-  if (!session) return conflict("draw not found or expired");
+  if (!session) return notFound("draw not found or expired");
 
-  // Reading is only available after all cards are revealed (or after complete later)
-  if (session.phase !== "REVEALED" && session.phase !== "COMPLETE") {
-    return conflict("reading not available until all cards are revealed", {
+  // Reading is only available after completion and must already exist
+  if (session.phase !== "COMPLETE" || !session.reading) {
+    return conflict("reading not available; draw not completed", {
       phase: session.phase,
     });
   }
 
-  const reading = makeStubReading(session);
-  return Response.json({ ok: true, reading });
+  return Response.json({ ok: true, reading: session.reading });
 }
