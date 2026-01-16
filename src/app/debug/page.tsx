@@ -3,26 +3,49 @@
 
 import { useMemo, useState } from "react";
 
-type StartResponse =
-  | {
-      ok: true;
-      drawId: string;
-      phase: string;
-      spread: number;
-      expiresAt: number;
-      cosmic: { dayOfYear: number; descriptor: string; metaphor: string };
-    }
-  | { ok: false; error: string; details?: unknown };
+type StartOk = {
+  ok: true;
+  drawId: string;
+  phase: string;
+  spread: number;
+  expiresAt: number;
+  cosmic: { dayOfYear: number; descriptor: string; metaphor: string };
+};
 
-type OkResp = { ok: true } & Record<string, any>;
+type StartErr = { ok: false; error: string; details?: unknown };
+
+type StartResponse = StartOk | StartErr;
+
+type OkResp = { ok: true } & Record<string, unknown>;
 type ErrResp = { ok: false; error: string; details?: unknown };
 
-async function postJson<T>(url: string, body: any): Promise<T> {
+/* ---------- tiny type guards ---------- */
+
+function isErrResp(x: unknown): x is ErrResp {
+  return typeof x === "object" && x !== null && (x as { ok?: unknown }).ok === false;
+}
+
+function isStartOk(x: unknown): x is StartOk {
+  if (typeof x !== "object" || x === null) return false;
+  const o = x as Record<string, unknown>;
+  return (
+    o.ok === true &&
+    typeof o.drawId === "string" &&
+    typeof o.phase === "string" &&
+    (o.spread === 3 || o.spread === 5) &&
+    typeof o.expiresAt === "number"
+  );
+}
+
+/* ---------- helpers ---------- */
+
+async function postJson<T>(url: string, body: unknown): Promise<T> {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+
   const json = (await res.json()) as T;
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return json;
@@ -39,7 +62,7 @@ export default function DebugPage() {
   const [copied, setCopied] = useState(false);
 
   const drawId = useMemo(
-    () => (resp && "drawId" in resp ? resp.drawId : null),
+    () => (resp?.ok ? resp.drawId : null),
     [resp]
   );
 
@@ -56,11 +79,23 @@ export default function DebugPage() {
         body: JSON.stringify({ name, question, spread }),
       });
 
-      const json = (await res.json()) as StartResponse;
+      const json: unknown = await res.json();
 
-      if (!res.ok || (json as any).ok === false) {
-        setErr((json as any).error ?? `HTTP ${res.status}`);
-        setResp(json);
+      if (!res.ok) {
+        const msg =
+          typeof json === "object" &&
+          json !== null &&
+          typeof (json as { error?: unknown }).error === "string"
+            ? (json as { error: string }).error
+            : `HTTP ${res.status}`;
+        setErr(msg);
+        setResp({ ok: false, error: msg });
+        return;
+      }
+
+      if (!isStartOk(json)) {
+        setErr("Unexpected response shape from /api/draw/start");
+        setResp({ ok: false, error: "Unexpected response shape from /api/draw/start" });
         return;
       }
 
@@ -96,7 +131,7 @@ export default function DebugPage() {
           drawId,
           deckIndex: i,
         });
-        if ((json as any).ok === false) throw new Error((json as any).error);
+        if (isErrResp(json)) throw new Error(json.error);
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Auto-select failed");
@@ -118,7 +153,7 @@ export default function DebugPage() {
           drawId,
           selectedIndex: i,
         });
-        if ((json as any).ok === false) throw new Error((json as any).error);
+        if (isErrResp(json)) throw new Error(json.error);
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Auto-reveal failed");
@@ -132,11 +167,8 @@ export default function DebugPage() {
       setErr("No drawId yet.");
       return;
     }
-    try {
-      await postJson<OkResp | ErrResp>("/api/draw/complete", { drawId });
-    } catch (e) {
-      throw e;
-    }
+    const json = await postJson<OkResp | ErrResp>("/api/draw/complete", { drawId });
+    if (isErrResp(json)) throw new Error(json.error);
   }
 
   async function autoFlow() {
@@ -241,7 +273,11 @@ export default function DebugPage() {
             <button onClick={openReading} disabled={loading}>
               Complete → Open /reading
             </button>
-            <a href={`/api/draw/state?drawId=${encodeURIComponent(drawId)}`} target="_blank" rel="noreferrer">
+            <a
+              href={`/api/draw/state?drawId=${encodeURIComponent(drawId)}`}
+              target="_blank"
+              rel="noreferrer"
+            >
               Open /state JSON
             </a>
           </>
