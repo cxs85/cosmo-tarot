@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     return json(400, { ok: false, error: "invalid JSON body" });
   }
 
-  const drawId = typeof body?.drawId === "string" ? body.drawId.trim() : "";
+  const drawId = typeof body === "object" && body !== null && "drawId" in body && typeof body.drawId === "string" ? body.drawId.trim() : "";
   if (!drawId) return json(400, { ok: false, error: "drawId is required" });
 
   const session = getDraw(drawId);
