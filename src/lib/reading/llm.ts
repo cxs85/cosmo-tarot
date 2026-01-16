@@ -3,9 +3,21 @@ import OpenAI from "openai";
 import type { DrawSession } from "@/lib/draw/types";
 import type { ReadingResult } from "@/lib/reading/types";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
+let client: OpenAI | null = null;
+
+function getClient(): OpenAI {
+  if (client) return client;
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    // IMPORTANT: do NOT throw at module load time
+    // This must only fail at runtime when actually invoked
+    throw new Error("Missing OPENAI_API_KEY");
+  }
+
+  client = new OpenAI({ apiKey });
+  return client;
+}
 
 export async function generateReadingLLM(
   session: DrawSession
@@ -43,6 +55,8 @@ Schema:
 }
 `;
 
+  const client = getClient();
+
   const response = await client.chat.completions.create({
     model: "gpt-4.1-mini",
     temperature: 0.7,
@@ -50,7 +64,7 @@ Schema:
     response_format: { type: "json_object" },
   });
 
-  const raw = response.choices[0].message.content;
+  const raw = response.choices[0]?.message?.content;
   if (!raw) throw new Error("empty LLM response");
 
   const parsed = JSON.parse(raw) as ReadingResult;
