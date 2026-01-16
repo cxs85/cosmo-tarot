@@ -5,7 +5,6 @@ export const DRAW_TTL_MS = 60 * 60 * 1000; // 60 minutes
 const MAX_DRAWS = 5000;
 
 declare global {
-  // eslint-disable-next-line no-var
   var __COSMO_DRAWS__: Map<string, DrawSession> | undefined;
 }
 

@@ -16,7 +16,7 @@ export async function POST(req: Request) {
         Boolean(process.env.OPENAI_API_KEY)
       );
       
-  let body: any;
+  let body: unknown;
   try {
     body = await req.json();
   } catch {
